@@ -8,14 +8,16 @@ import { AuditPage } from './pages/AuditPage'
 import { LandingPage } from './pages/LandingPage'
 import { VerticalPage } from './pages/VerticalPage'
 import { PortfolioPage } from './pages/PortfolioPage'
+import { MLBStrikeoutPredictor } from './components/MLBStrikeoutPredictor'
 
 function App() {
   return (
-    <Router basename="/edge">
+    <Router basename="/">
       <div className="min-h-screen bg-gray-900">
         <main>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            <Route path="/verticals/mlb" element={<MLBStrikeoutPredictor />} />
             <Route path="/verticals/:vertical" element={<VerticalPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/clv-tracker" element={<CLVTrackerPage />} />

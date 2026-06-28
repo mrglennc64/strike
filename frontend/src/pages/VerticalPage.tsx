@@ -42,11 +42,17 @@ interface Prediction {
   kelly: number
   confidence: string
   action: string
+  signal?: string
+  liquidity?: number
+  volume_24h?: number
+  end_date?: string | null
+  url?: string | null
 }
 
 export function VerticalPage() {
   const { vertical } = useParams<{ vertical: string }>()
   const [predictions, setPredictions] = useState<Prediction[]>([])
+  const [model, setModel] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,6 +64,7 @@ export function VerticalPage() {
         const response = await fetch(`/api/verticals/${vertical}`)
         const data = await response.json()
         setPredictions(data.predictions || [])
+        setModel(data.model || '')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load predictions')
       } finally {
@@ -71,15 +78,23 @@ export function VerticalPage() {
   }, [vertical])
 
   const getEdgeColor = (edge: number) => {
-    if (edge > 0.15) return 'text-green-400'
-    if (edge > 0.08) return 'text-yellow-400'
-    return 'text-red-400'
+    const a = Math.abs(edge)
+    if (a >= 0.04) return edge > 0 ? 'text-green-400' : 'text-red-400'
+    if (a >= 0.02) return 'text-yellow-400'
+    return 'text-gray-400'
   }
 
   const getActionColor = (action: string) => {
-    if (action === 'BUY') return 'bg-green-900 text-green-200'
-    if (action === 'SELL') return 'bg-red-900 text-red-200'
+    if (action.startsWith('BUY YES')) return 'bg-green-900 text-green-200'
+    if (action.startsWith('BUY NO')) return 'bg-red-900 text-red-200'
     return 'bg-gray-700 text-gray-200'
+  }
+
+  const fmtMoney = (n?: number) => {
+    if (!n) return '—'
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`
+    return `$${n}`
   }
 
   return (
@@ -95,6 +110,12 @@ export function VerticalPage() {
             <div>
               <h1 className="text-4xl font-bold">{info.name}</h1>
               <p className="text-gray-400">{info.description}</p>
+              {model && (
+                <p className="text-xs text-gray-500 mt-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse" />
+                  Live markets from Polymarket · {model}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -129,6 +150,9 @@ export function VerticalPage() {
                   <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
                     <div className="md:col-span-2">
                       <h3 className="text-lg font-bold">{pred.event}</h3>
+                      {pred.signal && (
+                        <p className="text-xs text-gray-500 mt-1">signal: {pred.signal}</p>
+                      )}
                     </div>
 
                     <div className="text-center">
@@ -163,6 +187,25 @@ export function VerticalPage() {
                     <div>
                       <p className="text-gray-400">Confidence</p>
                       <p className="font-bold capitalize">{pred.confidence}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Liquidity</p>
+                      <p className="font-bold">{fmtMoney(pred.liquidity)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Market</p>
+                      {pred.url ? (
+                        <a
+                          href={pred.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-blue-400 hover:text-blue-300"
+                        >
+                          View on Polymarket →
+                        </a>
+                      ) : (
+                        <p className="font-bold">—</p>
+                      )}
                     </div>
                   </div>
                 </div>
