@@ -1,0 +1,48 @@
+name: Deploy Backend to Railway
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy to Railway
+        uses: railway-app/actions-deploy@v1
+        with:
+          token: ${{ secrets.RAILWAY_TOKEN }}
+          service: betting-framework-api
+          environment: production
+        env:
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENV_ID }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+
+      - name: Check deployment status
+        run: |
+          echo "Backend deployed to Railway"
+          echo "API URL: https://betting-framework-api.up.railway.app"
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify API health
+        run: |
+          for i in {1..30}; do
+            if curl -s https://betting-framework-api.up.railway.app/health | grep -q "ok"; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Attempt $i: API not ready yet, waiting..."
+            sleep 10
+          done
+          echo "API health check failed"
+          exit 1

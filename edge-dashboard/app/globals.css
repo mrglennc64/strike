@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0a0e27;
+  color: #e0e6ff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: 'Courier New', monospace;
+}
+
+/* Trading UI specific styles */
+.trading-card {
+  background-color: #141829;
+  border: 1px solid #2a2f4a;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.trading-card:hover {
+  border-color: #00d4ff;
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+}
+
+.trading-input {
+  background-color: #0f1220;
+  border: 1px solid #2a2f4a;
+  color: #e0e6ff;
+  padding: 0.75rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.trading-input:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+}
+
+.trading-btn {
+  background-color: #00d4ff;
+  color: #0a0e27;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trading-btn:hover {
+  background-color: #00b8d4;
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+}
+
+.trading-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.trading-btn-secondary {
+  background-color: transparent;
+  border: 1px solid #2a2f4a;
+  color: #e0e6ff;
+}
+
+.trading-btn-secondary:hover {
+  border-color: #00d4ff;
+  color: #00d4ff;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #00d4ff, #00ffff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

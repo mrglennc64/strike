@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:sportsbook.draftkings.com)",
+      "WebFetch(domain:zap-hosting.com)",
+      "WebFetch(domain:www.bettingusa.com)",
+      "WebFetch(domain:sharpr.substack.com)",
+      "WebFetch(domain:auo.nu)",
+      "WebFetch(domain:igamingbusiness.com)",
+      "WebFetch(domain:esportsinsider.com)",
+      "WebFetch(domain:playthepercentage.com)",
+      "WebFetch(domain:www.dartsdatabase.co.uk)",
+      "WebFetch(domain:www.pinnacleoddsdropper.com)",
+      "WebFetch(domain:esports.gg)",
+      "WebFetch(domain:www.r-bloggers.com)",
+      "WebFetch(domain:www.invenglobal.com)",
+      "WebFetch(domain:metabot.gg)",
+      "WebFetch(domain:www.performanceodds.com)",
+      "WebFetch(domain:www.vlr.gg)",
+      "WebFetch(domain:esl.com)",
+      "WebFetch(domain:www.rebelbetting.com)",
+      "WebFetch(domain:www.kaggle.com)",
+      "WebFetch(domain:www.thespike.gg)",
+      "WebFetch(domain:liquipedia.net)",
+      "WebFetch(domain:open.uct.ac.za)",
+      "WebFetch(domain:leetify.com)",
+      "WebFetch(domain:e-space.mmu.ac.uk)",
+      "WebFetch(domain:awpy.readthedocs.io)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:riotesportsdata.com)",
+      "WebFetch(domain:www.mediawiki.org)",
+      "WebFetch(domain:lol.fandom.com)",
+      "PowerShell(git push -u origin main)",
+      "Bash(python3)"
+    ]
+  }
+}

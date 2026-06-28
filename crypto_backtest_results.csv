@@ -1,0 +1,12 @@
+event,date,market_prob,model_prob,edge,result,profit,kelly_bet,kelly_pnl
+Bitcoin reaches $40k,2023-10-01,0.05,0.01,0.04,1,0.01,0.25,4.75
+Bitcoin reaches $50k,2023-12-01,0.05,0.01,0.04,1,0.01,0.25,4.75
+Bitcoin reaches $60k,2024-02-01,0.19,0.01,0.18,1,0.045,0.25,1.0656
+Bitcoin reaches $70k,2024-05-01,0.05,0.01,0.04,1,0.01,0.25,4.75
+Bitcoin reaches $80k,2024-08-01,0.05,0.01,0.04,1,0.01,0.25,4.75
+Ethereum ETF approval (US),2024-06-01,0.7153,0.67,0.0453,1,0.0113,0.25,0.0995
+Ethereum ETF outflows surge,2024-08-01,0.3916,0.5,-0.1084,1,-0.0271,0.25,0.3883
+Solana reaches 99% uptime,2023-09-01,0.2311,0.3618,-0.1307,1,-0.0327,0.25,0.8318
+Solana network sustains 100k TPS,2024-02-01,0.6135,0.5,0.1135,0,-0.0,0.0,0.0
+Bitcoin reaches $90k,2024-11-01,0.05,0.01,0.04,0,-0.0,0.0,0.0
+Ethereum reaches $3k,2024-01-01,0.0618,0.01,0.0518,1,0.013,0.25,3.7945

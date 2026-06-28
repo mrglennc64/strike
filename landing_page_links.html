@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge AI - Market Prediction Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #00d4ff, #7928ca);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            color: #a0a0a0;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .verticals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 32px;
+            margin-bottom: 60px;
+        }
+
+        .vertical-card {
+            position: relative;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 32px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .vertical-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--card-color);
+            opacity: 0.8;
+        }
+
+        .vertical-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(255, 255, 255, 0.2);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            line-height: 1;
+        }
+
+        .card-title-group h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #ffffff;
+        }
+
+        .card-title-group p {
+            font-size: 0.875rem;
+            color: #808080;
+        }
+
+        .card-description {
+            font-size: 0.95rem;
+            color: #b0b0b0;
+            margin-bottom: 28px;
+            flex-grow: 1;
+        }
+
+        .demo-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .demo-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #707070;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .demo-event {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #e0e0e0;
+            margin-bottom: 16px;
+        }
+
+        .prediction-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.875rem;
+        }
+
+        .prediction-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .prediction-label {
+            color: #808080;
+        }
+
+        .prediction-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+
+        .probability-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            margin-top: 2px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .probability-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--card-color), rgba(255, 255, 255, 0.6));
+            border-radius: 3px;
+        }
+
+        .edge-badge {
+            display: inline-block;
+            background: rgba(76, 175, 80, 0.15);
+            color: #4caf50;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: var(--card-color);
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+            margin-top: auto;
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        .vertical-card:hover .cta-button {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .footer p {
+            color: #707070;
+            font-size: 0.875rem;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5rem;
+            }
+
+            .verticals-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+
+            .card-header {
+                gap: 12px;
+            }
+
+            .card-icon {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Edge AI</h1>
+            <p>Multi-vertical prediction platform with real-time market edge analysis</p>
+        </div>
+
+        <div class="verticals-grid">
+            <!-- AI Releases Card -->
+            <a href="https://edge-ai.io/ai-releases" class="vertical-card" style="--card-color: #FF6B6B">
+                <div class="card-header">
+                    <span class="card-icon">⚡</span>
+                    <div class="card-title-group">
+                        <h2>AI Releases</h2>
+                        <p style="color: #FF6B6B;">Model predictions</p>
+                    </div>
+                </div>
+
+                <p class="card-description">Claude, GPT, xAI release predictions with real-time betting market tracking</p>
+
+                <div class="demo-section">
+                    <div class="demo-label">Demo: Claude 4.5 Release Date</div>
+                    <div class="demo-event">Q3 2026 Release Probability</div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Market Price:</span>
+                        <span class="prediction-value">32%</span>
+                    </div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Model Probability:</span>
+                        <span class="prediction-value">58%</span>
+                    </div>
+                    <div class="probability-bar">
+                        <div class="probability-fill" style="width: 58%"></div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="edge-badge">+26% Edge</span>
+                    </div>
+                </div>
+
+                <div class="cta-button">Explore</div>
+            </a>
+
+            <!-- Sports Betting Card -->
+            <a href="https://edge-ai.io/sports-betting" class="vertical-card" style="--card-color: #4ECDC4">
+                <div class="card-header">
+                    <span class="card-icon">🏆</span>
+                    <div class="card-title-group">
+                        <h2>Sports Betting</h2>
+                        <p style="color: #4ECDC4;">ML & stats models</p>
+                    </div>
+                </div>
+
+                <p class="card-description">MLB, Tennis, Cricket, Hockey predictive models optimized for live betting</p>
+
+                <div class="demo-section">
+                    <div class="demo-label">Demo: MLB Strikeout Model</div>
+                    <div class="demo-event">Strikeout Count O/U 8.5</div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Market Price:</span>
+                        <span class="prediction-value">48%</span>
+                    </div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Model Probability:</span>
+                        <span class="prediction-value">62%</span>
+                    </div>
+                    <div class="probability-bar">
+                        <div class="probability-fill" style="width: 62%"></div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="edge-badge">+14% Edge</span>
+                    </div>
+                </div>
+
+                <div class="cta-button">Explore</div>
+            </a>
+
+            <!-- Market Arbitrage Card -->
+            <a href="https://edge-ai.io/arbitrage" class="vertical-card" style="--card-color: #45B7D1">
+                <div class="card-header">
+                    <span class="card-icon">💱</span>
+                    <div class="card-title-group">
+                        <h2>Market Arbitrage</h2>
+                        <p style="color: #45B7D1;">Real-time spreads</p>
+                    </div>
+                </div>
+
+                <p class="card-description">Cross-exchange price discrepancy finder with automated alert system</p>
+
+                <div class="demo-section">
+                    <div class="demo-label">Demo: BTC Spot-Futures</div>
+                    <div class="demo-event">Cross-Exchange Arbitrage</div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Market Price:</span>
+                        <span class="prediction-value">51%</span>
+                    </div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Model Probability:</span>
+                        <span class="prediction-value">67%</span>
+                    </div>
+                    <div class="probability-bar">
+                        <div class="probability-fill" style="width: 67%"></div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="edge-badge">+16% Edge</span>
+                    </div>
+                </div>
+
+                <div class="cta-button">Explore</div>
+            </a>
+
+            <!-- Crypto Markets Card -->
+            <a href="https://edge-ai.io/crypto" class="vertical-card" style="--card-color: #FFA502">
+                <div class="card-header">
+                    <span class="card-icon">₿</span>
+                    <div class="card-title-group">
+                        <h2>Crypto Markets</h2>
+                        <p style="color: #FFA502;">On-chain analytics</p>
+                    </div>
+                </div>
+
+                <p class="card-description">On-chain metrics and price prediction models with whale tracking</p>
+
+                <div class="demo-section">
+                    <div class="demo-label">Demo: ETH Price Movement</div>
+                    <div class="demo-event">Price Move >3% Next 24h</div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Market Price:</span>
+                        <span class="prediction-value">44%</span>
+                    </div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Model Probability:</span>
+                        <span class="prediction-value">59%</span>
+                    </div>
+                    <div class="probability-bar">
+                        <div class="probability-fill" style="width: 59%"></div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="edge-badge">+15% Edge</span>
+                    </div>
+                </div>
+
+                <div class="cta-button">Explore</div>
+            </a>
+
+            <!-- Economic Events Card -->
+            <a href="https://edge-ai.io/economics" class="vertical-card" style="--card-color: #95E1D3">
+                <div class="card-header">
+                    <span class="card-icon">📊</span>
+                    <div class="card-title-group">
+                        <h2>Economic Events</h2>
+                        <p style="color: #95E1D3;">Macro forecasting</p>
+                    </div>
+                </div>
+
+                <p class="card-description">Macro data releases and market impact forecasts with economic calendar</p>
+
+                <div class="demo-section">
+                    <div class="demo-label">Demo: Fed Rate Decision</div>
+                    <div class="demo-event">Rate Cut Next Meeting</div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Market Price:</span>
+                        <span class="prediction-value">38%</span>
+                    </div>
+
+                    <div class="prediction-row">
+                        <span class="prediction-label">Model Probability:</span>
+                        <span class="prediction-value">71%</span>
+                    </div>
+                    <div class="probability-bar">
+                        <div class="probability-fill" style="width: 71%"></div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="edge-badge">+33% Edge</span>
+                    </div>
+                </div>
+
+                <div class="cta-button">Explore</div>
+            </a>
+        </div>
+
+        <div class="footer">
+            <p>Real-time market predictions powered by quantitative models and on-chain data analysis</p>
+        </div>
+    </div>
+</body>
+</html>

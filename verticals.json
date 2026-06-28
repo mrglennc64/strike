@@ -1,0 +1,74 @@
+{
+  "verticals": [
+    {
+      "name": "AI Releases",
+      "path": "/ai-releases",
+      "description": "Claude, GPT, xAI release predictions",
+      "icon": "⚡",
+      "color": "#FF6B6B",
+      "link": "https://edge-ai.io/ai-releases",
+      "demo": {
+        "event": "Claude 4.5 Release Date",
+        "marketPrice": 0.32,
+        "modelProbability": 0.58,
+        "edge": "+26%"
+      }
+    },
+    {
+      "name": "Sports Betting",
+      "path": "/sports-betting",
+      "description": "MLB, Tennis, Cricket, Hockey predictive models",
+      "icon": "🏆",
+      "color": "#4ECDC4",
+      "link": "https://edge-ai.io/sports-betting",
+      "demo": {
+        "event": "Strikeout Count O/U 8.5",
+        "marketPrice": 0.48,
+        "modelProbability": 0.62,
+        "edge": "+14%"
+      }
+    },
+    {
+      "name": "Market Arbitrage",
+      "path": "/arbitrage",
+      "description": "Cross-exchange price discrepancy finder",
+      "icon": "💱",
+      "color": "#45B7D1",
+      "link": "https://edge-ai.io/arbitrage",
+      "demo": {
+        "event": "BTC Spot-Futures Spread",
+        "marketPrice": 0.51,
+        "modelProbability": 0.67,
+        "edge": "+16%"
+      }
+    },
+    {
+      "name": "Crypto Markets",
+      "path": "/crypto",
+      "description": "On-chain metrics and price prediction models",
+      "icon": "₿",
+      "color": "#FFA502",
+      "link": "https://edge-ai.io/crypto",
+      "demo": {
+        "event": "ETH Price Move >3% Next 24h",
+        "marketPrice": 0.44,
+        "modelProbability": 0.59,
+        "edge": "+15%"
+      }
+    },
+    {
+      "name": "Economic Events",
+      "path": "/economics",
+      "description": "Macro data releases and market impact forecasts",
+      "icon": "📊",
+      "color": "#95E1D3",
+      "link": "https://edge-ai.io/economics",
+      "demo": {
+        "event": "Fed Rate Cut Next Meeting",
+        "marketPrice": 0.38,
+        "modelProbability": 0.71,
+        "edge": "+33%"
+      }
+    }
+  ]
+}
