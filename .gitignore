@@ -78,3 +78,9 @@ htmlcov/
 # IDE specific
 .vscode/settings.json
 .vscode/launch.json
+
+# Local env files (keep *.example templates)
+.env
+.env.*
+!.env.example
+!*.env.example
