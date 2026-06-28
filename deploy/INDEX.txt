@@ -1,0 +1,258 @@
+================================================================================
+STRIKE CLV TRACKING DEPLOYMENT PACKAGE
+Created: 2026-06-28
+================================================================================
+
+DELIVERABLES SUMMARY
+────────────────────────────────────────────────────────────────────────────────
+
+Core Scripts:
+  ✓ deploy/cron-setup.sh      - Install/manage CLV cron jobs (systemd + crontab)
+  ✓ deploy/clv-capture.sh     - Execute CLV capture API calls with retry logic
+  ✓ deploy/monitoring.sh      - 5-minute health checks with alerting
+  ✓ deploy/logs.sh            - Tail/filter/rotate production logs
+
+Systemd Unit Files:
+  ✓ deploy/systemd/strike-backend.service    - Backend API service
+  ✓ deploy/systemd/strike-frontend.service   - Frontend web service
+
+Documentation:
+  ✓ deploy/README.md          - Comprehensive setup & operations guide
+  ✓ deploy/INDEX.txt          - This file
+
+SCHEDULED JOBS
+────────────────────────────────────────────────────────────────────────────────
+
+Time          | Job              | Endpoint                      | Purpose
+──────────────┼──────────────────┼───────────────────────────────┼──────────────────────
+1:00 PM UTC   | capture_open     | POST /api/clv/capture?open    | Market open metrics
+10:15 PM UTC  | capture_close    | POST /api/clv/capture?close   | Market close metrics
+10:30 PM UTC  | calculate_clv    | POST /api/clv/calculate       | Calculate aggregates
+
+Monitoring:   | health_check     | GET /health                   | Every 5 minutes
+
+INSTALLATION & QUICK START
+────────────────────────────────────────────────────────────────────────────────
+
+1. Make scripts executable:
+   chmod +x deploy/*.sh
+
+2. Install service files (requires sudo):
+   sudo cp deploy/systemd/*.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl start strike-backend.service
+   sudo systemctl enable strike-backend.service
+
+3. Install CLV tracking jobs:
+   ./deploy/cron-setup.sh install
+
+4. Verify installation:
+   ./deploy/cron-setup.sh list
+   ./deploy/logs.sh summary
+
+5. Test manually:
+   ./deploy/clv-capture.sh open
+   ./deploy/logs.sh capture
+
+FILE STRUCTURE & LINE COUNTS
+────────────────────────────────────────────────────────────────────────────────
+
+deploy/README.md                         501 lines   - Setup & operations guide
+deploy/logs.sh                           375 lines   - Log management utility
+deploy/cron-setup.sh                     371 lines   - Cron/systemd job installer
+deploy/monitoring.sh                     359 lines   - Health check & alerting
+deploy/clv-capture.sh                    271 lines   - API caller with retry logic
+deploy/systemd/strike-backend.service     58 lines   - Backend service definition
+deploy/systemd/strike-frontend.service    48 lines   - Frontend service definition
+
+Total:  ~1,983 lines of production-ready code & config
+
+COMMAND REFERENCE
+────────────────────────────────────────────────────────────────────────────────
+
+Installation & Management:
+  ./deploy/cron-setup.sh install          - Install CLV jobs
+  ./deploy/cron-setup.sh list             - List installed jobs
+  ./deploy/cron-setup.sh uninstall        - Remove CLV jobs
+
+Manual Execution:
+  ./deploy/clv-capture.sh open            - Run market open capture
+  ./deploy/clv-capture.sh close           - Run market close capture
+  ./deploy/clv-capture.sh calculate       - Run CLV calculation
+  DEBUG=1 ./deploy/clv-capture.sh open    - Run with debug logging
+
+Health Monitoring:
+  ./deploy/monitoring.sh                  - Run health check
+  ALERT_EMAIL=ops@example.com \
+    ./deploy/monitoring.sh                - Check with email alerts
+  ALERT_SLACK=https://hooks.slack.com/... \
+    ./deploy/monitoring.sh                - Check with Slack alerts
+
+Log Management:
+  ./deploy/logs.sh                        - Show all logs
+  ./deploy/logs.sh -f capture             - Follow capture logs
+  ./deploy/logs.sh -l ERROR               - Show only errors
+  ./deploy/logs.sh -l WARN                - Show warnings & errors
+  ./deploy/logs.sh search "timeout"       - Search logs
+  ./deploy/logs.sh summary                - Show statistics
+  ./deploy/logs.sh errors                 - Show recent errors
+  ./deploy/logs.sh rotate                 - Rotate log files
+  ./deploy/logs.sh clean 7                - Delete logs > 7 days old
+
+Service Management:
+  sudo systemctl status strike-backend.service
+  sudo systemctl restart strike-backend.service
+  sudo systemctl logs strike-backend.service -f
+  sudo systemctl enable strike-backend.service
+  sudo systemctl disable strike-backend.service
+
+CONFIGURATION
+────────────────────────────────────────────────────────────────────────────────
+
+Environment Variables:
+
+  cron-setup.sh:
+    DEPLOY_USER=strike              # User to run jobs as
+    USE_SYSTEMD=auto                # Force systemd, cron, or auto-detect
+    VENV_PATH=/opt/strike/.venv     # Python virtual environment
+    BACKEND_URL=http://localhost:8000
+
+  clv-capture.sh:
+    BACKEND_URL=http://localhost:8000  # Backend API URL
+    CLV_API_KEY=token                  # Optional Bearer token
+    REQUEST_TIMEOUT=30                 # Request timeout (seconds)
+    RETRY_COUNT=3                      # Retry attempts
+    RETRY_DELAY=5                      # Delay between retries
+    DEBUG=1                            # Enable debug logging
+
+  monitoring.sh:
+    BACKEND_URL=http://localhost:8000
+    ALERT_EMAIL=ops@example.com
+    ALERT_SLACK=https://hooks.slack.com/services/...
+    MAX_LOG_AGE_MINUTES=30
+
+Config Files:
+  /etc/strike/backend.env              # Backend configuration
+  /etc/strike/frontend.env             # Frontend configuration
+  /etc/systemd/system/strike-*.service # Service definitions
+
+LOGS
+────────────────────────────────────────────────────────────────────────────────
+
+Location: logs/ (created automatically)
+
+  logs/clv-capture.log      - CLV capture job results
+  logs/monitoring.log       - Health check results
+  (rotated files archived)
+
+Format: [TIMESTAMP] [LEVEL] Message
+
+  Levels: INFO, WARN, ERROR, DEBUG
+  Colors: Auto-highlighted in logs.sh output
+
+Retention:
+  Default: Keeps all logs
+  Rotate: ./deploy/logs.sh rotate
+  Clean:  ./deploy/logs.sh clean 7 (remove > 7 days old)
+
+SYSTEMD SERVICES
+────────────────────────────────────────────────────────────────────────────────
+
+Backend Service (strike-backend.service):
+  Description:    Strike Backend API Service
+  Type:           notify (systemd will wait for startup)
+  User:           strike
+  Port:           8000 (configurable)
+  Workers:        4 (configurable)
+  Memory Limit:   512M
+  CPU Quota:      50%
+  Restart:        on-failure (up to 3 times in 2 minutes)
+  Auto-start:     yes (WantedBy=multi-user.target)
+
+Frontend Service (strike-frontend.service):
+  Description:    Strike Frontend Web Service
+  Type:           simple
+  User:           strike
+  Port:           3000 (configurable)
+  Memory Limit:   512M
+  CPU Quota:      50%
+  Restart:        on-failure
+  Auto-start:     yes
+
+PRODUCTION CHECKLIST
+────────────────────────────────────────────────────────────────────────────────
+
+Before deploying to production, verify:
+
+  [ ] Backend service installed and running
+  [ ] Frontend service installed and running
+  [ ] CLV jobs installed: ./deploy/cron-setup.sh list
+  [ ] Health check passing: ./deploy/monitoring.sh
+  [ ] Manual capture test: ./deploy/clv-capture.sh open
+  [ ] Log file created: ls -l logs/clv-capture.log
+  [ ] Alerts configured: ALERT_EMAIL or ALERT_SLACK set
+  [ ] Log rotation configured: ./deploy/logs.sh rotate (in cron)
+  [ ] Services auto-start: sudo systemctl is-enabled strike-backend.service
+  [ ] Memory/CPU limits set appropriately
+  [ ] Security hardening enabled in service files
+  [ ] Monitoring cron job installed (5-minute checks)
+  [ ] Tested service restart: sudo systemctl restart strike-backend.service
+  [ ] Verified reboot recovery: sudo systemctl reboot
+
+TROUBLESHOOTING
+────────────────────────────────────────────────────────────────────────────────
+
+Backend not starting:
+  journalctl -u strike-backend.service -n 50
+  cat /etc/strike/backend.env
+  lsof -i :8000
+
+CLV jobs not running:
+  ./deploy/cron-setup.sh list
+  crontab -l
+  DEBUG=1 ./deploy/clv-capture.sh open
+
+Health checks failing:
+  ./deploy/monitoring.sh
+  curl http://localhost:8000/health
+
+High memory usage:
+  Edit /etc/systemd/system/strike-backend.service
+  Change: MemoryLimit=256M
+  sudo systemctl daemon-reload && sudo systemctl restart strike-backend.service
+
+API endpoints unreachable:
+  curl -v http://localhost:8000/api/clv/capture
+  curl -v http://localhost:8000/api/clv/calculate
+
+Log file issues:
+  ./deploy/logs.sh summary
+  ./deploy/logs.sh errors
+  du -sh logs/
+  ./deploy/logs.sh rotate
+
+SUPPORT & MAINTENANCE
+────────────────────────────────────────────────────────────────────────────────
+
+Daily:
+  - Check logs: ./deploy/logs.sh errors
+  - Monitor health: ./deploy/monitoring.sh
+
+Weekly:
+  - Review monitoring alerts
+  - Check log disk usage: du -sh logs/
+  - Verify job execution: ./deploy/logs.sh summary
+
+Monthly:
+  - Clean old logs: ./deploy/logs.sh clean 30
+  - Review error trends in logs
+  - Test service recovery: sudo systemctl restart strike-backend.service
+
+Additional Resources:
+  - Full documentation: deploy/README.md
+  - See help text: ./deploy/cron-setup.sh --help
+  - Script help: ./deploy/logs.sh --help
+
+================================================================================
+END OF INDEX
+================================================================================

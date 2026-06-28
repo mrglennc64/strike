@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  economics-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://betting:betting@postgres:5432/betting_db
+      - FRED_API_KEY=${FRED_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=false
+      - POLYMARKET_API_KEY=${POLYMARKET_API_KEY:-}
+      - KALSHI_API_KEY=${KALSHI_API_KEY:-}
+    depends_on:
+      - postgres
+    networks:
+      - betting-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./backend:/app/backend
+      - /tmp:/tmp  # For model storage
+
+  economics-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python -m celery -A services.fed_economics_predictor worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://betting:betting@postgres:5432/betting_db
+      - FRED_API_KEY=${FRED_API_KEY}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - MODEL_TRAIN_AUTO=${MODEL_TRAIN_AUTO:-false}
+      - MODEL_TRAIN_FREQUENCY_HOURS=${MODEL_TRAIN_FREQUENCY_HOURS:-24}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - betting-network
+    volumes:
+      - ./backend:/app/backend
+      - /tmp:/tmp
+
+  economics-scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python -m celery -A services.fed_economics_predictor beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://betting:betting@postgres:5432/betting_db
+      - FRED_API_KEY=${FRED_API_KEY}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - betting-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: betting
+      POSTGRES_PASSWORD: betting
+      POSTGRES_DB: betting_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - betting-network
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - betting-network
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - betting-network
+
+volumes:
+  postgres_data:
+
+networks:
+  betting-network:
+    driver: bridge

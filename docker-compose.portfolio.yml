@@ -1,0 +1,119 @@
+version: '3.8'
+
+# Portfolio Engine Service Addition
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.portfolio.yml up
+# This overlay adds the portfolio service to the main stack
+
+services:
+  # Portfolio Engine Service
+  portfolio:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: portfolio
+    container_name: betting-framework-portfolio
+    environment:
+      # Application
+      DEBUG: ${DEBUG:-False}
+      APP_NAME: ${APP_NAME:-Betting Framework}
+      SERVICE_NAME: portfolio-engine
+
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-betting_user}:${POSTGRES_PASSWORD:-betting_password}@postgres:5432/${POSTGRES_DB:-betting_db}
+      POSTGRES_USER: ${POSTGRES_USER:-betting_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-betting_password}
+      POSTGRES_DB: ${POSTGRES_DB:-betting_db}
+
+      # Redis Cache
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
+
+      # Portfolio Engine Configuration
+      PORTFOLIO_ENABLE_MONITORING: ${PORTFOLIO_ENABLE_MONITORING:-true}
+      PORTFOLIO_REBALANCE_FREQUENCY: ${PORTFOLIO_REBALANCE_FREQUENCY:-monthly}
+      PORTFOLIO_MAX_CORRELATION_THRESHOLD: ${PORTFOLIO_MAX_CORRELATION_THRESHOLD:-0.85}
+      PORTFOLIO_REGIME_SHOCK_THRESHOLD: ${PORTFOLIO_REGIME_SHOCK_THRESHOLD:-0.3}
+
+      # Risk Management
+      MAX_SINGLE_BET_FRACTION: ${MAX_SINGLE_BET_FRACTION:-0.05}
+      MAX_DAILY_LOSS_FRACTION: ${MAX_DAILY_LOSS_FRACTION:-0.10}
+      MAX_KELLY_FRACTION: ${MAX_KELLY_FRACTION:-0.25}
+
+      # External APIs
+      FRED_API_KEY: ${FRED_API_KEY}
+      COINGECKO_API_KEY: ${COINGECKO_API_KEY}
+      NEWSAPI_API_KEY: ${NEWSAPI_API_KEY}
+
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/portfolio/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - betting-network
+    volumes:
+      - ./backend:/app
+      - ./monitoring:/app/monitoring
+      - ./logs/portfolio:/app/logs
+    labels:
+      - "monitoring=enabled"
+      - "service=portfolio-engine"
+
+  # Portfolio Monitoring Service
+  portfolio-monitor:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile
+    container_name: betting-framework-portfolio-monitor
+    environment:
+      # Monitoring Configuration
+      MONITOR_ENABLED: "true"
+      CHECK_INTERVAL_SECONDS: ${MONITOR_CHECK_INTERVAL:-300}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-betting_user}:${POSTGRES_PASSWORD:-betting_password}@postgres:5432/${POSTGRES_DB:-betting_db}
+
+      # Redis Cache
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
+
+      # Portfolio Engine URL
+      PORTFOLIO_API_URL: http://portfolio:8001
+
+      # Alert Configuration
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL}
+      ALERT_EMAIL: ${ALERT_EMAIL}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      portfolio:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - betting-network
+    volumes:
+      - ./monitoring:/app
+      - ./logs/monitoring:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  betting-network:
+    external: true
+    name: betting-framework-network

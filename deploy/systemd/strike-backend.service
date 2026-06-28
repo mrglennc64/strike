@@ -1,0 +1,58 @@
+[Unit]
+Description=Strike Backend API Service
+Documentation=https://github.com/mrglennc64/strike
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=strike
+Group=strike
+WorkingDirectory=/opt/strike
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+EnvironmentFile=-/etc/strike/backend.env
+EnvironmentFile=-/opt/strike/.env
+
+# Virtual environment
+ExecStartPre=/usr/bin/test -d /opt/strike/.venv
+
+# Application startup
+ExecStart=/opt/strike/.venv/bin/python -m uvicorn \
+    strike.api.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 4 \
+    --worker-class uvicorn_worker.UvicornWorker
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+StartLimitInterval=120
+StartLimitBurst=3
+
+# Resource limits
+MemoryLimit=512M
+CPUQuota=50%
+LimitNOFILE=65535
+
+# Security
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=strike-backend
+
+# Health check
+ExecStartPost=/usr/bin/curl -f http://localhost:8000/health || /bin/true
+
+# Timeout for shutdown
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,214 @@
+# Production Docker Compose Configuration
+# Betting Framework Backend with PostgreSQL, Redis, and Nginx
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: betting-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-betting_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password}
+      POSTGRES_DB: ${DB_NAME:-betting_db}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_database.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-betting_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - betting-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: betting-redis-prod
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - betting-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # FastAPI Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: betting-api-prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Application
+      ENVIRONMENT: production
+      DEBUG: "false"
+      WORKERS: "4"
+
+      # Database
+      DATABASE_URL: postgresql://${DB_USER:-betting_user}:${DB_PASSWORD:-secure_password}@postgres:5432/${DB_NAME:-betting_db}
+      DATABASE_POOL_SIZE: "20"
+
+      # Security
+      SECRET_KEY: ${SECRET_KEY:?Please set SECRET_KEY in .env}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+
+      # Risk Management
+      MAX_SINGLE_BET_FRACTION: "0.05"
+      MAX_DAILY_LOSS_FRACTION: "0.10"
+      MAX_KELLY_FRACTION: "0.25"
+
+      # APIs
+      ODDS_API_KEY: ${ODDS_API_KEY}
+      POLYMARKET_KEY: ${POLYMARKET_KEY}
+      KALSHI_API_KEY: ${KALSHI_API_KEY}
+      FRED_API_KEY: ${FRED_API_KEY}
+
+      # Cache
+      ENABLE_CACHE: "true"
+      CACHE_TTL_SECONDS: "3600"
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379/0
+
+      # Middleware
+      ENABLE_RATE_LIMITING: "true"
+      RATE_LIMIT_PER_MINUTE: "100"
+
+      # Logging
+      LOG_LEVEL: INFO
+      LOG_FILE: /app/logs/app.log
+
+      # Feature Flags
+      ENABLE_MLB_EDGE: "true"
+      ENABLE_TENNIS_EDGE: "true"
+      ENABLE_CRICKET_EDGE: "true"
+      ENABLE_HORSE_EDGE: "true"
+      ENABLE_HOCKEY_EDGE: "true"
+      ENABLE_ECONOMICS_EDGE: "true"
+      ENABLE_EARNINGS_EDGE: "true"
+
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - betting-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: betting-nginx-prod
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - betting-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Prometheus Metrics (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: betting-prometheus-prod
+    restart: always
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - betting-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Grafana Dashboards (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: betting-grafana-prod
+    restart: always
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: 'grafana-piechart-panel'
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - betting-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  betting-network:
+    driver: bridge
