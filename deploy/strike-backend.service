@@ -1,0 +1,20 @@
+[Unit]
+Description=Strike Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/strike/backend
+# Secrets: /etc/mlb-edge.env is the canonical store (bootstrap writes it).
+# A local backend/.env, if present, overrides it — matches the live box.
+# Both are optional (leading -) so the unit boots on a fresh machine.
+EnvironmentFile=-/etc/mlb-edge.env
+EnvironmentFile=-/opt/strike/backend/.env
+ExecStart=/opt/strike/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8077
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

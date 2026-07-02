@@ -14,12 +14,12 @@ echo "==========================================================================
 
 # Step 1: Git pull latest code
 echo ""
-echo "[1/7] Pulling latest code from repository..."
+echo "[1/8] Pulling latest code from repository..."
 ssh $SERVER "cd $REPO_DIR && git pull origin main"
 
 # Step 2: Deploy archetype model CSV files
 echo ""
-echo "[2/7] Deploying archetype model data..."
+echo "[2/8] Deploying archetype model data..."
 ssh $SERVER "mkdir -p $REPO_DIR/backend/data/exports"
 scp data/exports/pitcher_archetypes.csv $SERVER:$REPO_DIR/backend/data/exports/
 scp data/exports/batter_archetypes.csv $SERVER:$REPO_DIR/backend/data/exports/
@@ -48,8 +48,20 @@ set -e
 PORT=8077
 SVC=strike-backend.service
 
-restart() { systemctl reset-failed "$SVC" 2>/dev/null || true; systemctl restart "$SVC"; sleep 2; }
 holder()  { ss -ltnp "sport = :$PORT" 2>/dev/null | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2; }
+# Poll for the bind instead of a fixed sleep: app import/model load can take
+# more than 2s, and failing a deploy on a service that comes up at t+3s is
+# a false alarm. 30s budget, then the caller's error handling kicks in.
+restart() {
+  systemctl reset-failed "$SVC" 2>/dev/null || true
+  systemctl restart "$SVC"
+  for _ in $(seq 1 30); do
+    [ -n "$(holder)" ] && return 0
+    systemctl is-active --quiet "$SVC" || break  # crashed: stop waiting
+    sleep 1
+  done
+  return 0  # let the explicit checks below report the failure
+}
 
 restart
 if ! systemctl is-active --quiet "$SVC"; then
@@ -89,7 +101,8 @@ ssh $SERVER "cd $REPO_DIR/frontend && VITE_API_BASE=/api npm install && npm run 
 # Step 6: Copy built frontend to nginx directory
 echo ""
 echo "[6/8] Deploying frontend assets..."
-ssh $SERVER "rm -rf $NGINX_DIR && mkdir -p $NGINX_DIR && cp -r $REPO_DIR/frontend/dist/* $NGINX_DIR/"
+# rsync --delete updates in place: no rm-then-copy window where nginx 404s.
+ssh $SERVER "mkdir -p $NGINX_DIR && rsync -a --delete $REPO_DIR/frontend/dist/ $NGINX_DIR/"
 
 # Step 7: Reload nginx
 echo ""
@@ -115,15 +128,23 @@ ssh $SERVER "systemctl is-active nginx" || {
     exit 1
 }
 
-# Test API endpoint
+# Test the site AND the API through nginx — the bind check can't catch a
+# broken proxy_pass, only a curl through the front door can.
 echo ""
-echo "Testing frontend..."
-API_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "https://strike.perfecthold.online/")
+echo "Testing frontend + API through nginx..."
+FRONT=$(curl -s -o /dev/null -w "%{http_code}" "https://strike.perfecthold.online/")
+API=$(curl -s -o /dev/null -w "%{http_code}" "https://strike.perfecthold.online/api/health")
 
-if [ "$API_RESPONSE" = "200" ]; then
-    echo "✓ Frontend is responding (HTTP $API_RESPONSE)"
+if [ "$FRONT" = "200" ]; then
+    echo "✓ Frontend is responding (HTTP $FRONT)"
 else
-    echo "⚠ Frontend returned HTTP $API_RESPONSE (expected for HTTPS redirect)"
+    echo "⚠ Frontend returned HTTP $FRONT"
+fi
+if [ "$API" = "200" ]; then
+    echo "✓ API is responding through nginx (HTTP $API)"
+else
+    echo "ERROR: /api/health returned HTTP $API through nginx"
+    exit 1
 fi
 
 echo ""

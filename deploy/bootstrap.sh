@@ -56,15 +56,27 @@ fi
 echo "==> Frontend build"
 ( cd "$APP/frontend" && npm ci && npm run build )
 
-echo "==> systemd service"
-cp "$APP/deploy/mlb-edge.service" /etc/systemd/system/mlb-edge.service
+echo "==> Web root (nginx serves /var/www/strike, decoupled from the build dir)"
+mkdir -p /var/www/strike
+cp -r "$APP/frontend/dist/." /var/www/strike/
+
+echo "==> systemd service (strike-backend.service — the ONE canonical unit)"
+cp "$APP/deploy/strike-backend.service" /etc/systemd/system/strike-backend.service
 systemctl daemon-reload
-systemctl enable mlb-edge >/dev/null 2>&1 || true
-systemctl restart mlb-edge
+systemctl enable strike-backend >/dev/null 2>&1 || true
+systemctl restart strike-backend
 
 echo "==> nginx site (additive: does NOT touch other vhosts)"
-cp "$APP/deploy/nginx-strike.conf" /etc/nginx/sites-available/strike
-ln -sf /etc/nginx/sites-available/strike /etc/nginx/sites-enabled/strike
+# Guarded like the env file: certbot rewrites this file in place to add TLS,
+# so re-running bootstrap must never clobber a certbot-managed live config.
+if [ ! -f /etc/nginx/sites-available/strike.perfecthold.online ]; then
+  cp "$APP/deploy/nginx-strike.conf" /etc/nginx/sites-available/strike.perfecthold.online
+  ln -sf /etc/nginx/sites-available/strike.perfecthold.online \
+         /etc/nginx/sites-enabled/strike.perfecthold.online
+else
+  echo "    site config exists (possibly certbot-managed), leaving it untouched"
+  echo "    repo copy for manual diff: $APP/deploy/nginx-strike.conf"
+fi
 # NOTE: we intentionally do NOT remove the 'default' site — this box may host other
 # sites. The strike vhost is matched by server_name, so it coexists safely.
 nginx -t
@@ -81,9 +93,9 @@ if [ -n "${LE_EMAIL:-}" ]; then
 fi
 
 echo
-echo "Done. Visit: http://$DOMAIN  (landing)  ·  http://$DOMAIN/app  (engine)"
+echo "Done. Visit: http://$DOMAIN  (the engine is served at /)"
 if [ -z "${ODDS_KEY:-}" ] && grep -q REPLACE_WITH /etc/mlb-edge.env; then
-  echo "NOTE: edit /etc/mlb-edge.env to add your the-odds-api key, then:  systemctl restart mlb-edge"
+  echo "NOTE: edit /etc/mlb-edge.env to add your the-odds-api key, then:  systemctl restart strike-backend"
 fi
 if [ -z "${LE_EMAIL:-}" ]; then
   echo "For HTTPS:  apt-get install -y certbot python3-certbot-nginx && certbot --nginx -d $DOMAIN"

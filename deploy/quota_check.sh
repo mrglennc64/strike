@@ -42,7 +42,7 @@ fi
 echo "[$TS] the-odds-api remaining=$REMAIN used=${USED:-?} (warn<$THRESHOLD)"
 if [ "$REMAIN" -lt "$THRESHOLD" ]; then
   echo "[$TS] *** WARNING: the-odds-api quota LOW ($REMAIN left). Flip to the spare:"
-  echo "        sed -i 's/^ODDS_PROVIDER=.*/ODDS_PROVIDER=oddsapiio/' /etc/mlb-edge.env && systemctl restart mlb-edge ***"
+  echo "        sed -i 's/^ODDS_PROVIDER=.*/ODDS_PROVIDER=oddsapiio/' /etc/mlb-edge.env && systemctl restart strike-backend ***"
   echo "$TS remaining=$REMAIN" > "$FLAG"
 else
   rm -f "$FLAG"
