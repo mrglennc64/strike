@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from app.data.client import StatsApiClient
+from app.dates import mlb_today
 from app.model.inputs import (
     BullpenContext,
     ExpectedWorkload,
@@ -294,7 +295,7 @@ async def fetch_pitcher_workload(
     from the RAW (unclamped) IP/start so an opener or short-leash role — which
     the clamp would otherwise hide — still trims the strikeout ceiling.
     """
-    today = today or date.today()
+    today = today or mlb_today()
 
     # Fetch season-to-date workload
     payload = await client.get_json(

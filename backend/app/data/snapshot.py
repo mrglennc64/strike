@@ -23,13 +23,13 @@ import argparse
 import asyncio
 import csv
 import os
-from datetime import date as date_cls
 
 from app.config import Settings
 from app.config import settings as default_settings
 from app.data.client import StatsApiClient
 from app.data.mlb_stats import fetch_probable_starts
 from app.data.names import names_match
+from app.dates import mlb_today_iso
 from app.data.odds import OddsProvider, PropLine, get_provider
 
 CSV_FIELDS = ["date", "pitcher", "line", "over_odds", "under_odds"]
@@ -125,7 +125,7 @@ async def snapshot_lines(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Snapshot today's strikeout prop lines to CSV.")
-    parser.add_argument("--date", default=date_cls.today().isoformat(), help="YYYY-MM-DD (default: today)")
+    parser.add_argument("--date", default=mlb_today_iso(), help="YYYY-MM-DD (default: today, US Eastern)")
     parser.add_argument("--csv", default=default_settings.lines_csv, help="Output CSV path")
     args = parser.parse_args(argv)
 

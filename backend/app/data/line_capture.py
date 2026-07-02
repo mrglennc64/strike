@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from app.config import settings as default_settings
 from app.data.odds import get_provider
 from app.data.snapshot import _collect_props
+from app.dates import mlb_today_iso
 
 FIELDS = ["date", "captured_at", "tag", "pitcher", "line", "over_odds", "under_odds"]
 
@@ -34,7 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     now = datetime.now(timezone.utc)
-    date_str = now.strftime("%Y-%m-%d")
+    # The row's game date is the MLB (US Eastern) slate day: a late capture
+    # after 00:00 UTC still belongs to tonight's games, not tomorrow's.
+    date_str = mlb_today_iso()
     ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     provider = get_provider(

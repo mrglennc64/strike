@@ -11,6 +11,8 @@ This is what the API's v2 routes serve. The original sync ``app.pipeline``
 
 from __future__ import annotations
 
+import asyncio
+
 from app.config import Settings
 from app.config import settings as default_settings
 from app.data.assemble import build_projection_inputs
@@ -197,29 +199,34 @@ async def build_slate_ensemble(
         settings.odds_api_key_io,
     )
     try:
-        starts = await fetch_probable_starts(client, date)
-        props = _collect_props(provider)
+        # The odds pull is sync httpx: run it in a thread so it can't freeze the
+        # event loop (and every other request), concurrently with the schedule.
+        starts, props = await asyncio.gather(
+            fetch_probable_starts(client, date),
+            asyncio.to_thread(_collect_props, provider),
+        )
 
-        priced: list[dict] = []
-        unpriced: list[dict] = []
-        for start in starts:
+        # Per-start input builds are independent MLB API fan-outs; run them
+        # concurrently (bounded, to stay polite) instead of one at a time.
+        input_sem = asyncio.Semaphore(8)
+
+        async def _build_row(start: ProbableStart) -> tuple[str, dict]:
             # Skip prediction if probable pitcher not announced (show as TBD in frontend)
             if not start.pitcher_id or start.pitcher_name == "TBD":
                 # Return minimal info to show game in UI with TBD status
-                tbd_out = {
+                return ("unpriced", {
                     "pitcher": "TBD",
                     "opponent": start.opponent_team_name,
                     "venue": start.venue_name,
                     "game_pk": start.game_pk,
                     "status": "probable_not_announced",
                     "message": "Probable pitcher not yet announced"
-                }
-                unpriced.append(tbd_out)
-                continue
+                })
 
-            inputs = await build_projection_inputs(
-                client, start, date, umpire_table=umpire_table, savant=savant
-            )
+            async with input_sem:
+                inputs = await build_projection_inputs(
+                    client, start, date, umpire_table=umpire_table, savant=savant
+                )
             park = park_factor(start.venue_name)
             prop = _match_prop(start, props)
             line = prop.line if prop else 0.5  # placeholder; only used when priced
@@ -240,13 +247,16 @@ async def build_slate_ensemble(
             if prop is not None:
                 out["bookmaker"] = prop.bookmaker
                 out["status"] = "ok"
-                priced.append(out)
-            else:
-                # No prop: drop the placeholder-line betting fields, keep projection.
-                for k in ("line", "prob_over", "prob_under", "fair_over_odds", "fair_under_odds"):
-                    out.pop(k, None)
-                out["status"] = "no_prop"
-                unpriced.append(out)
+                return ("priced", out)
+            # No prop: drop the placeholder-line betting fields, keep projection.
+            for k in ("line", "prob_over", "prob_under", "fair_over_odds", "fair_under_odds"):
+                out.pop(k, None)
+            out["status"] = "no_prop"
+            return ("unpriced", out)
+
+        rows_by_kind = await asyncio.gather(*(_build_row(s) for s in starts))
+        priced = [row for kind, row in rows_by_kind if kind == "priced"]
+        unpriced = [row for kind, row in rows_by_kind if kind == "unpriced"]
 
         # Cap correlated exposure (same pitcher across books/lines/re-pulls) before
         # ranking + card selection. Additive: adds kelly_capped, leaves kelly intact.
@@ -256,7 +266,8 @@ async def build_slate_ensemble(
         # the wide (~3x) quote pull, so it only runs when explicitly requested.
         sharp_vetoed = 0
         if sharp_check:
-            lines_by_pitcher = _collect_quote_lines(provider)
+            # Same event-loop rule as the props pull: sync httpx goes to a thread.
+            lines_by_pitcher = await asyncio.to_thread(_collect_quote_lines, provider)
             for row in priced:
                 lines = _match_quote_lines(row.get("pitcher", ""), lines_by_pitcher)
                 proj = row.get("expected_ks")

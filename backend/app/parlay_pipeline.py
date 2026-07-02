@@ -189,7 +189,9 @@ def parlay_risk(ev, bankroll: float | None = None) -> dict:
     return {
         "tier": tier,
         "win_prob": round(wp, 4),
-        "loses_about": (f"~1 in {round(1 / wp)}" if wp > 0 else "n/a"),
+        # 1/wp is the WIN frequency; the loss frequency is 1/(1-wp).
+        "wins_about": (f"~1 in {round(1 / wp)}" if wp > 0 else "n/a"),
+        "loses_about": (f"~{round((1 - wp) * 100)}% of the time" if 0 < wp < 1 else "n/a"),
         "kelly_fraction": round(ev.kelly, 4),
         "recommended_stake": (round(bankroll * ev.kelly, 2) if bankroll else None),
         "note": (

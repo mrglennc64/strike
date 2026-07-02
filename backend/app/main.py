@@ -12,8 +12,8 @@ Routes:
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import asdict
-from datetime import date as date_cls
 
 from pathlib import Path
 
@@ -34,6 +34,7 @@ from app.backtest.reliability import reliability_report
 from app.backtest.calibration_validate import oos_validate
 from app.backtest.settle import settle_predictions
 from app.config import settings
+from app.dates import mlb_today_iso
 from app.crypto_predictor import (
     CryptoEventPredictor,
     CryptoEventPrediction,
@@ -69,7 +70,25 @@ app.add_middleware(
 
 
 def _today() -> str:
-    return date_cls.today().isoformat()
+    return mlb_today_iso()
+
+
+# ---- /v2/slate result cache --------------------------------------------------
+# Building a slate re-runs hundreds of MLB Stats calls plus the paid odds pull
+# (observed: >70s cold). Cache the built result per (date, knobs) for a short
+# TTL so dashboard loads are a read, not a rebuild; the per-key lock keeps a
+# burst of visitors from all paying for the same build concurrently.
+_SLATE_CACHE_TTL = 300.0  # seconds
+_slate_cache: dict[tuple, tuple[float, dict]] = {}
+_slate_locks: dict[tuple, asyncio.Lock] = {}
+
+
+def _slate_cache_prune(now: float) -> None:
+    if len(_slate_cache) <= 64:
+        return
+    for key in [k for k, (t, _) in _slate_cache.items() if now - t >= _SLATE_CACHE_TTL]:
+        _slate_cache.pop(key, None)
+        _slate_locks.pop(key, None)
 
 
 @app.get("/health")
@@ -106,13 +125,14 @@ def predict(
 def slate(
     date: str | None = Query(None, description="YYYY-MM-DD; defaults to today"),
     min_edge: float | None = Query(None, description="Filter: only rows with edge >= this"),
+    log: bool = Query(False, description="Append evaluated rows to the predictions log. Ordinary views (and crawlers) must not write the graded record."),
 ) -> dict:
     target = date or _today()
     result = build_slate(target)
 
     ok_rows = [r for r in result.rows if r.status == "ok"]
-    # Log every evaluated prediction (seed for the future backtest/CLV layer).
-    log_predictions([asdict(r) for r in ok_rows], settings.predictions_log)
+    if log:
+        log_predictions([asdict(r) for r in ok_rows], settings.predictions_log)
 
     rows = [asdict(r) for r in result.rows]
     if min_edge is not None:
@@ -199,16 +219,30 @@ async def slate_v2(
     run_settings = settings
     if kelly_fraction is not None:
         run_settings = settings.model_copy(update={"kelly_fraction": kelly_fraction})
-    result = await build_slate_ensemble(
-        target,
-        max_bets=max_bets,
-        max_per_game=max_per_game,
-        select_min_edge=select_min_edge,
-        select_max_edge=select_max_edge,
-        min_completeness=min_completeness,
-        settings=run_settings,
-        sharp_check=sharp_check,
+    cache_key = (
+        target, max_bets, max_per_game, select_min_edge, select_max_edge,
+        min_completeness, run_settings.kelly_fraction, sharp_check,
     )
+    lock = _slate_locks.setdefault(cache_key, asyncio.Lock())
+    async with lock:
+        now = _time.monotonic()
+        hit = _slate_cache.get(cache_key)
+        if hit is not None and now - hit[0] < _SLATE_CACHE_TTL:
+            result = hit[1]
+        else:
+            result = await build_slate_ensemble(
+                target,
+                max_bets=max_bets,
+                max_per_game=max_per_game,
+                select_min_edge=select_min_edge,
+                select_max_edge=select_max_edge,
+                min_completeness=min_completeness,
+                settings=run_settings,
+                sharp_check=sharp_check,
+            )
+            _slate_cache[cache_key] = (_time.monotonic(), result)
+            _slate_cache_prune(_time.monotonic())
+    result = dict(result)  # cached dict must never be mutated by a response
     result["kelly_fraction"] = run_settings.kelly_fraction
     # The daily cron passes log=true so the graded record equals the dashboard's v2
     # card. Dashboard loads leave log=false, so ordinary views never write the log.
@@ -474,6 +508,9 @@ async def vertical_mlb(
     return await slate_v2(
         date=date,
         min_edge=min_edge,
+        # Explicit False: omitting this would pass the truthy Query(False) default
+        # object, and every page view would append the slate to the predictions log.
+        log=False,
         max_bets=4,
         max_per_game=1,
         select_min_edge=0.05,

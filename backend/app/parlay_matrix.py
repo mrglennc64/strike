@@ -37,6 +37,11 @@ from app.parlay_pipeline import _card_leg
 # Hard ceiling on legs per parlay — see module docstring. Even 6 is high-variance.
 MAX_MATRIX_LEGS = 6
 
+# A -EV moonshot has Kelly 0 by definition, so the Kelly bound below can't size
+# it. It gets this hard cap instead: a flagged lottery ticket is ~1% of bankroll,
+# never a double-digit share of the day's budget.
+MOONSHOT_BANKROLL_CAP = 0.01
+
 
 @dataclass
 class Tier:
@@ -118,13 +123,13 @@ def build_matrix_from_legs(
     for tier in tiers:
         target = round(tier.budget_pct * plan.daily_budget, 2)
         stake = cap_to_budget(target, plan.daily_budget, staked)
-        best = _best_combo(legs, tier.min_legs, tier.max_legs,
-                           prefer_payout=tier.allow_negative_ev,
-                           kf=kelly_fraction, kc=kelly_cap)
         if plan.daily_budget <= 0 or stake <= 0:
             results.append(TierResult(tier.name, tier.budget_pct, 0.0, False,
                                       note="no budget (reserve protected or daily cap spent)"))
             continue
+        best = _best_combo(legs, tier.min_legs, tier.max_legs,
+                           prefer_payout=tier.allow_negative_ev,
+                           kf=kelly_fraction, kc=kelly_cap)
         if best is None:
             results.append(TierResult(tier.name, tier.budget_pct, 0.0, False,
                                       note=f"no eligible parlay in the {tier.min_legs}-{tier.max_legs} "
@@ -137,11 +142,29 @@ def build_matrix_from_legs(
                                            "budget left unspent"))
             continue
 
-        staked += stake
+        # The budget split structures the day's spend, but the parlay's OWN capped
+        # Kelly (on the whole bankroll) is the risk ceiling — a generous daily
+        # budget (e.g. cycle_days=1, reserve=0) must never out-stake Kelly.
         note = ""
-        if not ev.positive_ev:
+        if ev.positive_ev and ev.kelly > 0:
+            kelly_bound = round(ev.kelly * plan.total_bankroll, 2)
+            if kelly_bound < stake:
+                stake = kelly_bound
+                note = (f"stake reduced to the parlay's own capped Kelly "
+                        f"({ev.kelly:.2%} of bankroll) — budget share exceeded it.")
+        else:
+            moonshot_cap = round(MOONSHOT_BANKROLL_CAP * plan.total_bankroll, 2)
+            if moonshot_cap < stake:
+                stake = moonshot_cap
             note = ("NEGATIVE-EV variance bucket: a flagged lottery ticket, not an "
-                    "expected-profit play (parlays don't create edge).")
+                    "expected-profit play (parlays don't create edge). Hard-capped "
+                    f"at {MOONSHOT_BANKROLL_CAP:.0%} of bankroll.")
+        if stake <= 0:
+            results.append(TierResult(tier.name, tier.budget_pct, 0.0, False,
+                                      note="Kelly-bounded stake rounds to zero — too small to bet."))
+            continue
+
+        staked += stake
         results.append(TierResult(
             name=tier.name, budget_pct=tier.budget_pct, stake=stake, built=True,
             n_legs=ev.n_legs, ev_per_unit=round(ev.ev_per_unit, 4),

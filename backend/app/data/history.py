@@ -53,6 +53,7 @@ from datetime import date, timedelta
 from typing import Mapping
 
 from app.data.client import StatsApiClient
+from app.data.mlb import _select_gamelog_split
 from app.data.mlb_stats import ProbableStart, fetch_probable_starts, parse_innings
 from app.data.umpires import UmpireTable, fetch_umpire_profile
 from app.model.backtest import (
@@ -142,13 +143,19 @@ async def _fetch_gamelog_splits(
     return stats[0].get("splits") or []
 
 
-def _actual_ks_on(splits: list[dict], on_date: str) -> int | None:
-    """Actual strikeouts the pitcher recorded on ``on_date`` (None if no final)."""
-    for split in splits:
-        if split.get("date") == on_date:
-            ks = (split.get("stat") or {}).get("strikeOuts")
-            return int(ks) if ks is not None else None
-    return None
+def _actual_ks_on(
+    splits: list[dict], on_date: str, game_pk: int | str | None = None
+) -> int | None:
+    """Actual strikeouts the pitcher recorded on ``on_date`` (None if no final).
+
+    Uses the shared start-aware selector so doubleheaders grade the right game
+    and a scratched probable's relief line is never graded as a start.
+    """
+    split = _select_gamelog_split(splits, on_date, game_pk=game_pk)
+    if split is None:
+        return None
+    ks = (split.get("stat") or {}).get("strikeOuts")
+    return int(ks) if ks is not None else None
 
 
 def _splits_before(splits: list[dict], on_date: str) -> list[dict]:
@@ -493,7 +500,7 @@ async def load_history_for_date(
     outcomes: list[GameOutcome] = []
     for start in starts:
         splits = await _fetch_gamelog_splits(client, start.pitcher_id, season)
-        actual_ks = _actual_ks_on(splits, on_date)
+        actual_ks = _actual_ks_on(splits, on_date, game_pk=getattr(start, "game_pk", None))
         if actual_ks is None:
             continue  # no final result for this start; skip
 

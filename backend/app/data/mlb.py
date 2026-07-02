@@ -49,16 +49,22 @@ def _is_start(split: dict) -> bool:
 def _select_gamelog_split(splits: list, date: str, game_pk: int | str | None = None) -> dict | None:
     """Pick the right game-log split for a starter prop (pure; unit-tested).
 
-    * ``game_pk`` given  -> the split for that exact game (None if not found).
+    * ``game_pk`` given  -> the split for that exact game (None if not found, or
+      if the pitcher appeared in that game in relief). If the splits carry no
+      gamePk at all (thin hydration), fall back to the date-based rules below.
     * doubleheader (two splits on the date) without ``game_pk`` -> the single
       *started* split; if that's still ambiguous, None (don't misgrade).
     * relief-only appearance -> None (a starter prop is never graded on a relief line).
     """
     on_date = [s for s in splits if s.get("date") == date]
-    if game_pk is not None:
+    if game_pk is not None and any(s.get("game", {}).get("gamePk") is not None for s in on_date):
         for s in on_date:
             if str(s.get("game", {}).get("gamePk")) == str(game_pk):
-                return s
+                # The relief guard applies here too: a scratched probable who
+                # pitched relief in this exact game is a void, not a grade.
+                if _is_start(s) or "gamesStarted" not in s.get("stat", {}):
+                    return s
+                return None
         return None
     starts = [s for s in on_date if _is_start(s)]
     if len(starts) == 1:

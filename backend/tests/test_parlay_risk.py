@@ -33,6 +33,14 @@ def test_no_bankroll_leaves_stake_none():
 
 def test_loses_about_and_note_surface_the_win_probability():
     r = parlay_risk(_EV(0.25, 3, 0.02))
-    assert r["loses_about"] == "~1 in 4"
+    # 25% win prob WINS ~1 in 4 and loses the other 75% — the loss label must
+    # never read as the win frequency (the old "loses ~1 in 4" inversion).
+    assert r["wins_about"] == "~1 in 4"
+    assert r["loses_about"] == "~75% of the time"
     assert r["win_prob"] == 0.25
     assert "UNPROVEN" in r["note"]
+
+
+def test_loss_label_edge_cases():
+    assert parlay_risk(_EV(0.0, 2, 0.0))["loses_about"] == "n/a"
+    assert parlay_risk(_EV(1.0, 2, 0.0))["loses_about"] == "n/a"

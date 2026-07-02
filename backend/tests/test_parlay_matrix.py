@@ -5,6 +5,7 @@ from app.model.bankroll import plan_bankroll
 from app.model.parlay import ParlayLeg
 from app.parlay_matrix import (
     MAX_MATRIX_LEGS,
+    MOONSHOT_BANKROLL_CAP,
     Tier,
     build_matrix_from_legs,
 )
@@ -73,3 +74,31 @@ def test_no_legs_builds_nothing():
     m = build_matrix_from_legs([], plan)
     assert m["total_staked"] == 0.0
     assert all(t["built"] is False for t in m["tiers"])
+
+
+def test_generous_daily_budget_never_out_stakes_kelly():
+    # The abuse case: reserve=0, cycle_days=1 makes daily_budget = the WHOLE
+    # bankroll, so the 50% tier split would stake $500 of $1000 on one parlay.
+    # The tier stake must instead be bounded by the parlay's own capped Kelly.
+    legs = _legs(6, 0.60, -110)
+    plan = plan_bankroll(1000, 0, 1)
+    m = build_matrix_from_legs(legs, plan, kelly_fraction=0.25, kelly_cap=0.05)
+    for t in m["tiers"]:
+        if not t["built"]:
+            continue
+        # kelly_cap=0.05 -> no +EV tier may exceed 5% of the bankroll.
+        assert t["stake"] <= 0.05 * plan.total_bankroll + 0.01, t
+    assert m["total_staked"] < 0.5 * plan.total_bankroll
+
+
+def test_moonshot_is_hard_capped_at_one_pct_of_bankroll():
+    # -EV legs: only the variance tier builds, and its flagged lottery ticket
+    # must be capped at MOONSHOT_BANKROLL_CAP of the bankroll, not 20% of a
+    # generous daily budget.
+    legs = _legs(6, 0.50, -150)
+    plan = plan_bankroll(1000, 0, 1)
+    m = build_matrix_from_legs(legs, plan)
+    large = {t["name"]: t for t in m["tiers"]}["large"]
+    assert large["built"] is True
+    assert large["stake"] <= MOONSHOT_BANKROLL_CAP * plan.total_bankroll + 0.01
+    assert "NEGATIVE-EV" in large["note"]
