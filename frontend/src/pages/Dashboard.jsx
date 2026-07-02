@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchSlate } from "../api.js";
+import { parseAmount } from "../stake.js";
 import SlateTable from "../components/SlateTable.jsx";
 import SimpleCards from "../components/SimpleCards.jsx";
 import SuggestedParlays from "../components/SuggestedParlays.jsx";
@@ -24,20 +25,32 @@ export default function Dashboard() {
   const [sharpCheck, setSharpCheck] = useState(false);
   // Bankroll + stake rounding: turn the per-bet Kelly fraction into an actual
   // dollar stake, snapped to a whole-dollar increment so the wager blends in as a
-  // casual bet rather than an obviously-optimised number. 0 = show no $ stakes.
-  const [bankroll, setBankroll] = useState(0);
+  // casual bet rather than an obviously-optimised number. Held as the RAW string
+  // so the field can be cleared and comma decimals ("1000,50") aren't zeroed;
+  // empty/invalid/0 = show no $ stakes.
+  const [bankroll, setBankroll] = useState("");
   const [stakeRound, setStakeRound] = useState(5);
+  // Show a reassurance line when a load takes more than a few seconds (cold
+  // backend loads can run over a minute).
+  const [slowLoad, setSlowLoad] = useState(false);
+  // Monotonic request counter: a resolving fetch only wins if no newer request
+  // started since, so out-of-order responses can't clobber the latest slate.
+  const requestSeq = useRef(0);
 
   async function load(d, sharp = sharpCheck) {
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
-      setData(await fetchSlate(d, null, kellyFraction, sharp));
+      const res = await fetchSlate(d, null, kellyFraction, sharp);
+      if (seq !== requestSeq.current) return; // a newer request superseded this one
+      setData(res);
     } catch (e) {
+      if (seq !== requestSeq.current) return;
       setError(e.message);
       setData(null);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }
 
@@ -45,6 +58,17 @@ export default function Dashboard() {
     load(date);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      setSlowLoad(false);
+      return;
+    }
+    const t = setTimeout(() => setSlowLoad(true), 3000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
+  const bankrollAmount = parseAmount(bankroll) ?? 0; // empty/invalid = hide stakes
 
   let rows = data?.rows ?? [];
   if (cardOnly) rows = rows.filter((r) => r.selected);
@@ -70,7 +94,15 @@ export default function Dashboard() {
           <input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            disabled={loading}
+            onChange={(e) => {
+              setDate(e.target.value);
+              // The loaded slate belongs to the OLD date — clear it so a stale
+              // slate is never shown under the new date. Press Load slate to
+              // fetch the new one.
+              setData(null);
+              setError(null);
+            }}
           />
         </label>
         <button onClick={() => load(date)} disabled={loading}>
@@ -88,6 +120,7 @@ export default function Dashboard() {
           <input
             type="checkbox"
             checked={sharpCheck}
+            disabled={loading}
             onChange={(e) => {
               setSharpCheck(e.target.checked);
               load(date, e.target.checked);
@@ -110,6 +143,12 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {loading && slowLoad && (
+        <p className="sub loading-note">
+          Building the slate — cold loads can take a minute…
+        </p>
+      )}
 
       <div className="kelly-control">
         <label className="kelly-label">
@@ -144,12 +183,11 @@ export default function Dashboard() {
         <label className="bankroll-label">
           Bankroll ($)
           <input
-            type="number"
-            min={0}
-            step="50"
+            type="text"
+            inputMode="decimal"
             value={bankroll}
-            onChange={(e) => setBankroll(Number(e.target.value))}
-            placeholder="0 = hide $ stakes"
+            onChange={(e) => setBankroll(e.target.value)}
+            placeholder="empty = hide $ stakes"
           />
         </label>
         <label className="bankroll-label">
@@ -188,15 +226,16 @@ export default function Dashboard() {
 
       {data &&
         (mode === "simple" ? (
-          <SimpleCards rows={rows} bankroll={bankroll} stakeRound={stakeRound} />
+          <SimpleCards rows={rows} bankroll={bankrollAmount} stakeRound={stakeRound} />
         ) : (
-          <SlateTable rows={rows} bankroll={bankroll} stakeRound={stakeRound} />
+          <SlateTable rows={rows} bankroll={bankrollAmount} stakeRound={stakeRound} />
         ))}
 
       {data && (
         <SuggestedParlays
+          key={date}
           date={date}
-          bankroll={bankroll}
+          bankroll={bankrollAmount}
           stakeRound={stakeRound}
         />
       )}

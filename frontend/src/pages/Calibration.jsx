@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchCalibration } from "../api.js";
+import { parseAmount } from "../stake.js";
 
 // Are the model's probabilities honest? Surfaces the /calibration reliability
 // tracker: when the model claims 70%, does it hit ~70% over a large sample?
@@ -59,9 +60,17 @@ function Bin({ b }) {
 
 export default function Calibration() {
   const [data, setData] = useState(null);
-  const [bins, setBins] = useState(10);
+  // Raw string so the field can be cleared while typing; parsed + clamped to
+  // 2..20 at request time.
+  const [bins, setBins] = useState("10");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  function bucketCount() {
+    const n = parseAmount(bins);
+    if (n == null) return 10; // empty/invalid → sensible default
+    return Math.min(20, Math.max(2, Math.round(n)));
+  }
 
   async function load(n) {
     setLoading(true);
@@ -77,7 +86,7 @@ export default function Calibration() {
   }
 
   useEffect(() => {
-    load(bins);
+    load(bucketCount());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -103,15 +112,14 @@ export default function Calibration() {
         <label>
           Buckets{" "}
           <input
-            type="number"
-            min={2}
-            max={50}
+            type="text"
+            inputMode="numeric"
             value={bins}
-            onChange={(e) => setBins(Number(e.target.value))}
+            onChange={(e) => setBins(e.target.value)}
             style={{ width: "4rem" }}
           />
         </label>
-        <button onClick={() => load(bins)} disabled={loading}>
+        <button onClick={() => load(bucketCount())} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </button>
       </div>

@@ -60,6 +60,12 @@ header h1 { margin: 0 0 4px; font-size: 24px; }
 .error { color: #f85149; }
 .empty { color: var(--muted); }
 
+/* Horizontal-scroll shell for wide tables (Pro mode on phones). */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 table.slate {
   width: 100%;
   border-collapse: collapse;
@@ -508,3 +514,9 @@ footer { margin-top: 24px; color: var(--muted); font-size: 12px; }
 .clv-decision.good .clv-progress-fill { background: #4ade80; }
 .clv-decision.bad .clv-progress-fill { background: #f85149; }
 .clv-decision.warn .clv-progress-fill { background: #d29922; }
+
+/* --- phones: tighten wide tables so they scroll instead of overflow --- */
+@media (max-width: 640px) {
+  .slate th, .slate td { padding: 6px 6px; font-size: 12px; }
+  .slate th { font-size: 10px; }
+}

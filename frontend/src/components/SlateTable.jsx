@@ -15,7 +15,7 @@ export default function SlateTable({ rows, bankroll = 0, stakeRound = 0 }) {
   // The consensus columns only have data when the sharp check (wide book pull) ran.
   const hasConsensus = evaluated.some((r) => r.consensus_line != null);
   return (
-    <div>
+    <div className="table-wrap">
       <button
         onClick={() => setShowMarketData(!showMarketData)}
         className="toggle-market-btn"

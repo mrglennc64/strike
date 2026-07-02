@@ -25,3 +25,15 @@ export function effectiveKelly(row) {
 }
 
 export const fmtMoney = (x) => (x == null ? "—" : `$${x.toFixed(2)}`);
+
+// Parse a user-typed amount from a text input. Accepts comma decimals
+// ("1000,50" — common on Swedish keyboards) as well as dots. Returns a finite
+// number, or null when the field is empty or not a number — callers decide what
+// null means (hide stakes, block submit, fall back to a default).
+export function parseAmount(str) {
+  if (str == null) return null;
+  const s = String(str).trim().replace(",", ".");
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}

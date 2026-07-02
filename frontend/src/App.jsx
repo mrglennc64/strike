@@ -6,6 +6,7 @@ import Research from "./pages/Research.jsx";
 import Calibration from "./pages/Calibration.jsx";
 import Clv from "./pages/Clv.jsx";
 import Hedge from "./pages/Hedge.jsx";
+import NotFound from "./pages/NotFound.jsx";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/calibration" element={<Calibration />} />
         <Route path="/clv" element={<Clv />} />
         <Route path="/hedge" element={<Hedge />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </ErrorBoundary>
   );

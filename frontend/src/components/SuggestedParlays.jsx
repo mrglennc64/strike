@@ -36,7 +36,7 @@ export default function SuggestedParlays({ date, bankroll = 0, stakeRound = 5 })
   return (
     <section className="parlay-suggest">
       <div className="parlay-head">
-        <h2>🎲 Suggested Parlays</h2>
+        <h2>🎲 Suggested Parlays — {date}</h2>
         <span className="parlay-sub">
           +EV combinations of today's card legs — independent (one game each),
           capped at 3 legs.

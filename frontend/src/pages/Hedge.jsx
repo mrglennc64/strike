@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchHedge } from "../api.js";
+import { parseAmount } from "../stake.js";
 
 // Hedge an EXISTING position — the CLV-lock calculator. You took an early bet at
 // a price you liked; the line moved. This computes the stake on the OPPOSITE side
@@ -20,13 +21,39 @@ export default function Hedge() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // A result must never outlive the inputs it was computed from: any edit
+  // clears it (and any previous error) until Calculate is pressed again.
+  const onInput = (setter) => (e) => {
+    setter(e.target.type === "text" ? e.target.value : Number(e.target.value));
+    setData(null);
+    setError(null);
+  };
+
   async function calc() {
+    const s = parseAmount(stake);
+    const o = parseAmount(odds);
+    const h = parseAmount(hedgeOdds);
+    if (s == null || o == null || h == null) {
+      setError("Fill in every field with a number (comma or dot decimals both work).");
+      setData(null);
+      return;
+    }
+    if (s <= 0) {
+      setError("Original stake must be greater than 0.");
+      setData(null);
+      return;
+    }
+    if (Math.abs(o) < 100 || Math.abs(h) < 100) {
+      setError(
+        "American odds are never between -99 and +99 — use prices like +115 or -120."
+      );
+      setData(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      setData(
-        await fetchHedge(Number(stake), Number(odds), Number(hedgeOdds), roundTo)
-      );
+      setData(await fetchHedge(s, o, h, roundTo));
     } catch (e) {
       setError(e.message);
       setData(null);
@@ -55,34 +82,35 @@ export default function Hedge() {
         <label>
           Original stake ($)
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={stake}
-            min={0}
-            step="0.01"
-            onChange={(e) => setStake(e.target.value)}
+            onChange={onInput(setStake)}
           />
         </label>
         <label>
           Original odds (American)
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={odds}
-            onChange={(e) => setOdds(e.target.value)}
+            onChange={onInput(setOdds)}
           />
           <small>the price you ALREADY took, e.g. +115</small>
         </label>
         <label>
           Hedge odds (American)
           <input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={hedgeOdds}
-            onChange={(e) => setHedgeOdds(e.target.value)}
+            onChange={onInput(setHedgeOdds)}
           />
           <small>opposite side available NOW, e.g. +105 or -120</small>
         </label>
         <label>
           Round stake
-          <select value={roundTo} onChange={(e) => setRoundTo(Number(e.target.value))}>
+          <select value={roundTo} onChange={onInput(setRoundTo)}>
             <option value={0}>Exact (perfect lock)</option>
             <option value={5}>Nearest $5</option>
             <option value={10}>Nearest $10</option>
