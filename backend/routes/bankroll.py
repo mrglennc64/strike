@@ -3,19 +3,16 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Bankroll, AuditLog
 from schemas import BankrollCreate, BankrollResponse, BankrollUpdate
+from .auth import get_current_user_id
 import json
 
 router = APIRouter(prefix="/api/bankroll", tags=["bankroll"])
 
 
-def get_current_user_id(request) -> int:
-    """Extract user_id from request (would come from JWT in real implementation)."""
-    return getattr(request.state, "user_id", 1)  # Default to 1 for demo
-
-
 @router.post("/initialize", response_model=BankrollResponse)
 def initialize_bankroll(
     request: BankrollCreate,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -28,9 +25,6 @@ def initialize_bankroll(
     Returns:
         BankrollResponse with bankroll details
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Check if bankroll exists
     bankroll = db.query(Bankroll).filter(Bankroll.user_id == user_id).first()
 
@@ -69,7 +63,10 @@ def initialize_bankroll(
 
 
 @router.get("/current", response_model=BankrollResponse)
-def get_bankroll(db: Session = Depends(get_db)):
+def get_bankroll(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     """
     Get current bankroll status.
 
@@ -79,9 +76,6 @@ def get_bankroll(db: Session = Depends(get_db)):
     Returns:
         BankrollResponse with current bankroll
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     bankroll = db.query(Bankroll).filter(Bankroll.user_id == user_id).first()
 
     if not bankroll:
@@ -96,6 +90,7 @@ def get_bankroll(db: Session = Depends(get_db)):
 @router.put("/update", response_model=BankrollResponse)
 def update_bankroll(
     request: BankrollUpdate,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -108,9 +103,6 @@ def update_bankroll(
     Returns:
         BankrollResponse with updated bankroll
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     bankroll = db.query(Bankroll).filter(Bankroll.user_id == user_id).first()
 
     if not bankroll:

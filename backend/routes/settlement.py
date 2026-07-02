@@ -5,6 +5,7 @@ from database import get_db
 from models import Bet, Bankroll, AuditLog
 from schemas import BetResponse, BetSettlement
 from services import BetStateMachine
+from .auth import get_current_user_id
 import json
 
 router = APIRouter(prefix="/api/settle", tags=["settlement"])
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/api/settle", tags=["settlement"])
 def settle_bet(
     bet_id: int,
     request: BetSettlement,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -29,9 +31,6 @@ def settle_bet(
     Returns:
         BetResponse with settled bet
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Get bet
     bet = db.query(Bet).filter(
         Bet.id == bet_id,
@@ -109,6 +108,7 @@ def settle_bet(
 def void_bet(
     bet_id: int,
     reason: str = "No reason provided",
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -124,9 +124,6 @@ def void_bet(
     Returns:
         BetResponse with voided bet
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Get bet
     bet = db.query(Bet).filter(
         Bet.id == bet_id,

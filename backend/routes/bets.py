@@ -5,6 +5,7 @@ from database import get_db
 from models import Bet, Prediction, Bankroll, AuditLog
 from schemas import BetCreate, BetResponse, BetStatusUpdate
 from services import KellyCalculator, BetStateMachine, RiskManager
+from .auth import get_current_user_id
 import json
 
 router = APIRouter(prefix="/api/place-bet", tags=["bets"])
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/api/place-bet", tags=["bets"])
 @router.post("/", response_model=BetResponse)
 def place_bet(
     request: BetCreate,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -22,14 +24,12 @@ def place_bet(
 
     Args:
         request: BetCreate with prediction_id and stake
+        user_id: Authenticated user id (from bearer token)
         db: Database session
 
     Returns:
         BetResponse with created bet
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Get prediction
     prediction = db.query(Prediction).filter(
         Prediction.id == request.prediction_id,
@@ -100,6 +100,7 @@ def place_bet(
 def transition_bet_status(
     bet_id: int,
     request: BetStatusUpdate,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -115,9 +116,6 @@ def transition_bet_status(
     Returns:
         BetResponse with updated bet
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Get bet
     bet = db.query(Bet).filter(
         Bet.id == bet_id,
@@ -171,6 +169,7 @@ def transition_bet_status(
 @router.get("/{bet_id}", response_model=BetResponse)
 def get_bet(
     bet_id: int,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -178,14 +177,12 @@ def get_bet(
 
     Args:
         bet_id: Bet ID
+        user_id: Authenticated user id (from bearer token)
         db: Database session
 
     Returns:
         BetResponse
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     bet = db.query(Bet).filter(
         Bet.id == bet_id,
         Bet.user_id == user_id,

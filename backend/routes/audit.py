@@ -6,6 +6,7 @@ from models import AuditLog
 from schemas import AuditLogResponse
 from typing import List
 from datetime import datetime, timedelta
+from .auth import get_current_user_id
 
 router = APIRouter(prefix="/api/audit-log", tags=["audit"])
 
@@ -17,6 +18,7 @@ def get_audit_logs(
     action_filter: str = None,
     entity_type_filter: str = None,
     days: int = 30,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -33,9 +35,6 @@ def get_audit_logs(
     Returns:
         List of AuditLogResponse sorted by timestamp (newest first)
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Calculate cutoff date
     cutoff = datetime.utcnow() - timedelta(days=days)
 
@@ -60,6 +59,7 @@ def get_logs_by_action(
     action: str,
     skip: int = 0,
     limit: int = 100,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -74,9 +74,6 @@ def get_logs_by_action(
     Returns:
         List of AuditLogResponse
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     logs = db.query(AuditLog).filter(
         AuditLog.user_id == user_id,
         AuditLog.action == action,
@@ -91,6 +88,7 @@ def get_logs_by_entity(
     entity_id: int,
     skip: int = 0,
     limit: int = 100,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -106,9 +104,6 @@ def get_logs_by_entity(
     Returns:
         List of AuditLogResponse
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     logs = db.query(AuditLog).filter(
         AuditLog.user_id == user_id,
         AuditLog.entity_type == entity_type,
@@ -121,6 +116,7 @@ def get_logs_by_entity(
 @router.get("/summary")
 def get_audit_summary(
     days: int = 30,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -133,9 +129,6 @@ def get_audit_summary(
     Returns:
         dict with activity summary
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     cutoff = datetime.utcnow() - timedelta(days=days)
 
     logs = db.query(AuditLog).filter(

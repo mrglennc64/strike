@@ -4,6 +4,7 @@ from database import get_db
 from models import Bankroll
 from schemas import KellyRequest, KellyResponse
 from services import KellyCalculator
+from .auth import get_current_user_id
 
 router = APIRouter(prefix="/api/kelly", tags=["kelly"])
 
@@ -80,6 +81,7 @@ def suggest_stake(
     win_probability: float,
     odds: float,
     kelly_multiplier: float = 0.25,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -94,9 +96,6 @@ def suggest_stake(
     Returns:
         dict with suggested stake and details
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Get user's bankroll
     bankroll = db.query(Bankroll).filter(Bankroll.user_id == user_id).first()
 

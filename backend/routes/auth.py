@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -12,6 +13,48 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Reads the token from the "Authorization: Bearer <token>" header (never a query
+# string, which would leak tokens into proxy/access logs and browser history).
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> int:
+    """
+    Auth dependency: verify the bearer JWT and return the authenticated user id.
+
+    Use as `user_id: int = Depends(get_current_user_id)` on any route that acts
+    on user-owned data. Raises 401 when the token is missing, malformed, or
+    invalid.
+    """
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+        sub = payload.get("sub")
+        if sub is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return int(sub)
+    except (JWTError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def hash_password(password: str) -> str:
@@ -121,34 +164,19 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 def get_current_user(
-    token: str = None,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
     Get current authenticated user.
 
-    Args:
-        token: JWT token (from Authorization header)
-        db: Database session
+    Auth is enforced by the get_current_user_id dependency, which reads and
+    verifies the bearer token from the Authorization header.
 
     Returns:
         UserResponse with user details
     """
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 

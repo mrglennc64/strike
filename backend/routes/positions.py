@@ -6,6 +6,7 @@ from models import Bet
 from schemas import BetResponse
 from typing import List
 from datetime import datetime, timedelta
+from .auth import get_current_user_id
 
 router = APIRouter(prefix="/api/positions", tags=["positions"])
 
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/api/positions", tags=["positions"])
 def get_active_positions(
     skip: int = 0,
     limit: int = 100,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -27,9 +29,6 @@ def get_active_positions(
     Returns:
         List of BetResponse for active bets
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     bets = db.query(Bet).filter(
         Bet.user_id == user_id,
         Bet.status == "LIVE",
@@ -43,6 +42,7 @@ def get_all_bets(
     skip: int = 0,
     limit: int = 100,
     status_filter: str = None,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -57,9 +57,6 @@ def get_all_bets(
     Returns:
         List of BetResponse
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     query = db.query(Bet).filter(Bet.user_id == user_id)
 
     if status_filter:
@@ -71,7 +68,10 @@ def get_all_bets(
 
 
 @router.get("/summary")
-def get_positions_summary(db: Session = Depends(get_db)):
+def get_positions_summary(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
     """
     Get summary of positions and P&L.
 
@@ -81,9 +81,6 @@ def get_positions_summary(db: Session = Depends(get_db)):
     Returns:
         dict with summary metrics
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Get active bets
     active_bets = db.query(Bet).filter(
         Bet.user_id == user_id,

@@ -4,6 +4,7 @@ from database import get_db
 from models import Prediction, AuditLog
 from schemas import PredictionCreate, PredictionResponse
 from typing import List
+from .auth import get_current_user_id
 import json
 
 router = APIRouter(prefix="/api/predictions", tags=["predictions"])
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/api/predictions", tags=["predictions"])
 @router.post("/", response_model=PredictionResponse)
 def submit_prediction(
     request: PredictionCreate,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -24,9 +26,6 @@ def submit_prediction(
     Returns:
         PredictionResponse with created prediction
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     # Validate probabilities
     if request.predicted_probability <= 0 or request.predicted_probability > 1:
         raise HTTPException(
@@ -108,6 +107,7 @@ def list_predictions(
     skip: int = 0,
     limit: int = 100,
     has_edge: bool = None,
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """
@@ -122,9 +122,6 @@ def list_predictions(
     Returns:
         List of PredictionResponse
     """
-    # In real app, would get user_id from JWT token
-    user_id = 1  # TODO: Get from auth context
-
     query = db.query(Prediction).filter(Prediction.user_id == user_id)
 
     if has_edge is not None:

@@ -1,5 +1,13 @@
+import logging
 import os
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
+
+# Default signing key, by owner decision (single-user personal tool): the app
+# must always boot without any SECRET_KEY configured. With this known key,
+# JWTs are forgeable — the login is a convenience, not a security boundary.
+# Set a real SECRET_KEY env var if this backend is ever exposed publicly.
+_DEFAULT_SECRET_KEY = "demo123"
 
 
 class Settings(BaseSettings):
@@ -33,10 +41,7 @@ class Settings(BaseSettings):
     # ============================================================================
     # Authentication & Security
     # ============================================================================
-    SECRET_KEY: str = os.getenv(
-        "SECRET_KEY",
-        "change-me-in-production-at-least-32-characters-long"
-    )
+    SECRET_KEY: str = os.getenv("SECRET_KEY", _DEFAULT_SECRET_KEY)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
@@ -132,6 +137,20 @@ class Settings(BaseSettings):
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     ALERT_EMAIL: str = os.getenv("ALERT_EMAIL", "admin@example.com")
+
+    @model_validator(mode="after")
+    def _validate_secret_key(self):
+        """Warn (never block boot) when running on the known default key."""
+        if not self.SECRET_KEY:
+            self.SECRET_KEY = _DEFAULT_SECRET_KEY
+        if self.SECRET_KEY == _DEFAULT_SECRET_KEY or len(self.SECRET_KEY) < 32:
+            logging.getLogger(__name__).warning(
+                "SECRET_KEY is the known default ('%s') or short — anyone who can "
+                "reach this API can forge login tokens. Fine for a private "
+                "single-user box; set a strong SECRET_KEY before exposing it.",
+                _DEFAULT_SECRET_KEY,
+            )
+        return self
 
     class Config:
         env_file = ".env"
