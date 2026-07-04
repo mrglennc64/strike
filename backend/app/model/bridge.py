@@ -61,8 +61,8 @@ def evaluate_projection(
         "line": line,
         "prob_over": round(p_over, 4),
         "prob_under": round(p_under, 4),
-        "fair_over_odds": round(prob_to_american(p_over), 1) if p_over > 0 else None,
-        "fair_under_odds": round(prob_to_american(p_under), 1) if p_under > 0 else None,
+        "fair_over_odds": round(prob_to_american(p_over), 1) if 0.0 < p_over < 1.0 else None,
+        "fair_under_odds": round(prob_to_american(p_under), 1) if 0.0 < p_under < 1.0 else None,
         "components": {c.name: round(c.estimate_ks, 3) for c in result.components},
     }
 

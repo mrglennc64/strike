@@ -76,3 +76,14 @@ def test_evaluate_projection_accepts_bare_result():
     out = evaluate_projection(result, line=6.5)
     assert out["pitcher"] == result.pitcher_name
     assert out["expected_ks"] == pytest.approx(round(result.projected_ks, 3))
+
+
+def test_degenerate_probability_yields_none_fair_odds_not_500():
+    # A line far above lambda makes p_under exactly 1.0 (and p_over 0.0) in float.
+    # prob_to_american rejects probs outside (0, 1); both sides must degrade to
+    # None instead of raising — one such start used to 500 the whole slate.
+    result = project(make_inputs())
+    out = evaluate_projection(result, line=100.5)
+    assert out["prob_under"] == pytest.approx(1.0)
+    assert out["fair_over_odds"] is None
+    assert out["fair_under_odds"] is None
