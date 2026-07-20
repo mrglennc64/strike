@@ -205,6 +205,55 @@ def clv_decision(clv_values: list[float], target_n: int = DECISION_TARGET_N) -> 
     )
 
 
+# (decided, signal) -> the ONLY phrasings the prose verdict may claim. Keyed on
+# the decision gate rather than on the mean, so a positive point estimate below
+# target_n reads as "not yet decided", not as an edge. Every phrase here is
+# reachable: the gate emits all three signals in both decided states.
+_EDGE_PHRASE = {
+    (True, "keep"): "real price edge (95% CI above zero at decision-grade n)",
+    (True, "kill"): "no price edge — significantly lags the close",
+    (True, "inconclusive"): "no proven edge — CI still straddles zero at decision-grade n",
+    (False, "keep"): "NOT YET DECIDED, leaning KEEP (provisional — below decision-grade n)",
+    (False, "kill"): "NOT YET DECIDED, leaning KILL (provisional — below decision-grade n)",
+    (False, "inconclusive"): "NOT YET DECIDED — no edge yet",
+}
+
+
+def _unmeasurable_note(unmeasurable: list["UnmeasurableBet"]) -> str:
+    """Prose for the excluded-because-the-line-moved rows, WITH their direction.
+
+    Dropping these is methodologically right — de-vigged CLV against a fixed
+    line is undefined once the line itself moved — but the exclusion is not
+    random, so a bare count understates what it hides. These are the largest
+    market disagreements in the sample, i.e. the most informative rows we have.
+
+    Splitting them by whether the market moved toward or away from our side
+    turns the exclusion into a stated direction of bias: mostly-toward means the
+    reported mean CLV is conservative, mostly-away means it is flattering. As of
+    2026-07-20 it was 15 toward / 8 against on 23 rows, so the published +0.73
+    prob-points understated the price edge rather than inventing it.
+    """
+    if not unmeasurable:
+        return ""
+    toward = 0
+    for u in unmeasurable:
+        if u.bet_line is None or u.close_line is None:
+            continue
+        moved = u.close_line - u.bet_line
+        # A lower line favours an under (we took the higher number); a higher
+        # line favours an over. Zero movement cannot reach this list.
+        toward += (moved < 0) if u.side == "under" else (moved > 0)
+    against = len(unmeasurable) - toward
+    bias = ("so the mean above is conservative" if toward > against
+            else "so the mean above is flattered" if against > toward
+            else "no net directional bias")
+    return (
+        f" {len(unmeasurable)} more matched a close at a different line (line moved) "
+        f"and are excluded as unmeasurable — {toward} moved toward our side, "
+        f"{against} against, {bias}."
+    )
+
+
 @dataclass
 class ClvReport:
     n_bets: int                 # flagged bets scored against a SAME-LINE captured close
@@ -352,13 +401,16 @@ def clv_report(
     vals = [s.clv for s in scored]
     mean_clv = sum(vals) / n
     pct_pos = sum(1 for s in scored if s.beat_close) / n
-    edge = "real price edge" if mean_clv > 0 else "no price edge — picks lagged the close"
+    dec = clv_decision(vals, target_n)
+    # The claim is DERIVED from the decision gate, never recomputed from the sign
+    # of the point estimate. Those two disagreed in production on 2026-07-20:
+    # verdict said "real price edge" off mean>0 while the gate immediately below
+    # it said "NOT YET DECIDED (no edge yet)" — one payload, two answers, and the
+    # confident one was wrong (the 95% CI covered zero). A mean is not an edge
+    # until an interval says so, and there is exactly one place that judges that.
+    edge = _EDGE_PHRASE[(dec.decided, dec.signal)]
     note = "" if n >= 50 else " (small sample — treat as provisional)"
-    unmeas_note = (
-        f" {n_unmeas} more matched a close at a different line (line moved) and are "
-        "excluded as unmeasurable."
-        if n_unmeas else ""
-    )
+    unmeas_note = _unmeasurable_note(unmeasurable)
     verdict = (
         f"n={n}: mean CLV {mean_clv * 100:+.2f} prob-points, {pct_pos * 100:.0f}% "
         f"of bets beat the close -> {edge}.{note}{unmeas_note}"
@@ -374,5 +426,5 @@ def clv_report(
         bets=scored,
         unmeasurable=unmeasurable,
         verdict=verdict,
-        decision=clv_decision(vals, target_n),
+        decision=dec,
     )
