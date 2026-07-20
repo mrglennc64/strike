@@ -4,8 +4,13 @@ set -euo pipefail
 # Deploy Archetype Model - pushes archetype CSV files and tests predictor
 # Usage: ./deploy/deploy_archetype_model.sh
 
-SERVER="root@187.77.111.16"
+# The ssh alias, not a literal IP — same source of truth as redeploy.sh. The
+# hardcoded 187.77.111.16 that used to live here stopped being the box some time
+# before 2026-07-20 (DNS points strike/fantasy.perfecthold.online at a different
+# host), so this script had been silently aiming at nothing.
+SERVER="${STRIKE_SERVER:-newvps}"
 REPO_DIR="/opt/strike"
+API_BASE="${STRIKE_API_BASE:-https://strike.perfecthold.online}"
 
 echo "=============================================================================="
 echo "Deploying Archetype Model to strike.perfecthold.online"
@@ -69,7 +74,7 @@ echo ""
 echo "[6/6] Testing API response..."
 
 # Make a test API call and check for archetype fields
-API_RESPONSE=$(curl -s "http://187.77.111.16/api/v2/slate?date=2026-06-23")
+API_RESPONSE=$(curl -s "$API_BASE/api/v2/slate?date=2026-06-23")
 
 if echo "$API_RESPONSE" | jq -e '.rows[0].archetype_k_rate' > /dev/null 2>&1; then
     echo "✓ API returning archetype predictions"

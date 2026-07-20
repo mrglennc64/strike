@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One-shot deploy for strike.perfecthold.online on a fresh Ubuntu/Debian VPS.
 #
-#   ssh root@187.77.111.16
+#   ssh newvps          # the ssh-config alias; deploy/redeploy.sh uses the same one
 #   curl -fsSL https://raw.githubusercontent.com/mrglennc64/strike/main/deploy/bootstrap.sh | ODDS_KEY=YOURKEY bash
 #
 # ODDS_KEY  (optional) your the-odds-api.com key; if omitted a placeholder is written

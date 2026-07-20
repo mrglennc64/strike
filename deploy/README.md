@@ -10,7 +10,7 @@ SSH in and run the bootstrap (pass your the-odds-api key inline so it lands only
 server's env file, never in the repo):
 
 ```bash
-ssh root@187.77.111.16
+ssh newvps   # ssh-config alias for the box; redeploy.sh and deploy_archetype_model.sh use it too
 
 curl -fsSL https://raw.githubusercontent.com/mrglennc64/strike/main/deploy/bootstrap.sh \
   | ODDS_KEY=YOUR_THEODDSAPI_KEY LE_EMAIL=you@example.com bash
